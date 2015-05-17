@@ -78,8 +78,9 @@ SYS_lqr = ss(Ac,Bc,Cc,Dc,...
 
 
 %% Simulate closed-loop system
-% step response
-t = 0.001:0.001:10;
+% time response
+dt = 0.001;
+t = 0:dt:10-dt;
 u = zeros(2,length(t));
 x0 = [0; 0; 0; 0; pi/32; 0; pi/32; 0];
 
