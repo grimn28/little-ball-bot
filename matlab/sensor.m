@@ -130,7 +130,7 @@ try
 			rho_g(i) = rho_g(i-1) + g(2)*dt;
 			phi_g(i) = phi_g(i-1) + g(1)*dt;
 
-			% complementary filter
+			% complementary filter -- THIS IS SO WRONG!! stupid internet, read a book
 			G = tau/(tau+dt);
 			rho_c(i) = G*rho_g(i) + (1-G)*rho_a(i);
 			phi_c(i) = G*phi_g(i) + (1-G)*phi_a(i);
