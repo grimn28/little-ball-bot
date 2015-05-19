@@ -73,7 +73,7 @@ observable = rank(obsv(A,C))==length(A);
 %% Design Kalman estimator
 Qe = w^2;
 Re = v^2;
-[Ke,L,P,M,Z] = kalman(SYS_bb,Qe,Re);
+%[Ke,L,P,M,Z] = kalman(SYS_bb,Qe,Re);
 
 
 %% Design feedback regulator
