@@ -33,67 +33,78 @@ v = 0.01; % measurement noise variance
 q = (M+m)*(I+m*l^2) - (m*l)^2; % common denominator
 
 A = [1, dt-0.5*dt^2*b*(I+m*l^2)/q, 0, 0, -0.5*dt^2*(m*l)^2*g/q, 0, 0, 0;
-	 0, 1-dt*b*(I+m*l^2)/q, 0, 0, -dt*(m*l)^2*g/q, 0, 0, 0;
-	 0, 0, 1, dt-0.5*dt^2*b*(I+m*l^2)/q, 0, 0, -0.5*dt^2*(m*l)^2*g/q, 0;
-	 0, 0, 0, 1-dt*b*(I+m*l^2)/q, 0, 0, -dt*(m*l)^2*g/q, 0;
-	 0, 0.5*dt^2*m*l*b/q, 0, 0, 1+0.5*dt^2*(M+m)*m*g*l/q, dt, 0, 0;
-	 0, dt*m*l*b/q, 0, 0, dt*(M+m)*m*g*l/q, 1, 0, 0;
-	 0, 0, 0, 0.5*dt^2*m*l*b/q, 0, 0, 1+0.5*dt^2*(M+m)*m*g*l/q, dt;
-	 0, 0, 0, dt*m*l*b/q, 0, 0, dt*(M+m)*m*g*l/q, 1];
+    0, 1-dt*b*(I+m*l^2)/q, 0, 0, -dt*(m*l)^2*g/q, 0, 0, 0;
+    0, 0, 1, dt-0.5*dt^2*b*(I+m*l^2)/q, 0, 0, -0.5*dt^2*(m*l)^2*g/q, 0;
+    0, 0, 0, 1-dt*b*(I+m*l^2)/q, 0, 0, -dt*(m*l)^2*g/q, 0;
+    0, 0.5*dt^2*m*l*b/q, 0, 0, 1+0.5*dt^2*(M+m)*m*g*l/q, dt, 0, 0;
+    0, dt*m*l*b/q, 0, 0, dt*(M+m)*m*g*l/q, 1, 0, 0;
+    0, 0, 0, 0.5*dt^2*m*l*b/q, 0, 0, 1+0.5*dt^2*(M+m)*m*g*l/q, dt;
+    0, 0, 0, dt*m*l*b/q, 0, 0, dt*(M+m)*m*g*l/q, 1];
 
 B = [0.5*dt^2*(I+m*l^2)/q, 0;
-	 dt*(I+m*l^2)/q, 0;
-	 0, 0.5*dt^2*(I+m*l^2)/q;
-	 0, dt*(I+m*l^2)/q;
-	 -0.5*dt^2*m*l/q, 0;
-	 -dt*m*l/q, 0;
-	 0, -0.5*dt^2*m*l/q;
-	 0, -dt*m*l/q];
+    dt*(I+m*l^2)/q, 0;
+    0, 0.5*dt^2*(I+m*l^2)/q;
+    0, dt*(I+m*l^2)/q;
+    -0.5*dt^2*m*l/q, 0;
+    -dt*m*l/q, 0;
+    0, -0.5*dt^2*m*l/q;
+    0, -dt*m*l/q];
 
 C = [1 0 0 0 0 0 0 0;
-	 0 0 1 0 0 0 0 0;
-	 0 0 0 0 1 0 0 0;
-	 0 0 0 0 0 0 1 0];
+    0 0 1 0 0 0 0 0;
+    0 0 0 0 1 0 0 0;
+    0 0 0 0 0 0 1 0];
 
 % variables
 t = dt:dt:50-dt; % time scale
 x = NaN(8,length(t)); % state
 y = NaN(4,length(t)); % output
-u = zeros(2,length(t)); % input
-r = ones(2,length(t)); % reference
 
-% initial conditions
-x(:,1) = [0;0;0;0;pi/64;0;-pi/120;0];
-y(:,1) = [0;0;0;0];
-err = 0;
-i_err = 0;
+% control inputs
+u = zeros(2,length(t)); % input (x-y acceleration)
+r = ones(2,length(t)); % reference (x-y position)
+
 
 %% LQR
-Q = eye(8);
-R = 0.01*eye(2);
-Klqr = dlqr(A,B,Q,R);
+Q = eye(8); % state weights (???)
+R = eye(2); % input weights (???)
+Klqr = dlqr(A,B,Q,R); % feedback gain
+
+% initial conditions
+x(:,1) = [0;0;0;0;0;0;0;0];
+y(:,1) = [0;0;0;0];
 
 %% PID
 Kp = 0;
-Ki = -0.02;
+Ki = -0.002;
 Kd = 0;
+
+% initial conditions
+pid_m0 = zeros(2,1);
+pid_m1 = zeros(2,1);
+err_m0 = zeros(2,1);
+err_m1 = zeros(2,1);
+err_m2 = zeros(2,1);
 
 %% simulate system
 for k = 1:length(t)-1
+    
+    y(:,k) = C*x(:,k); % read output sample
+    
+    err_m2 = err_m1; % shift old error sample
+    err_m1 = err_m0; % shift old error sample
+    err_m0 = r(:,k) - y(1:2,k); % update new error sample
 
-	% state/LQR/PID update
-	y(:,k) = C*x(:,k);
-	d_err = r(:,k) - y(1:2,k) - err;
-	err = r(:,k) - y(1:2,k);
-	i_err = i_err + err;
-	if k<=1
-		u(:,k) = Kp*err - Klqr*x(:,k);
-	else
-		I = err + I;
-		u(:,k) = Kp*err + Ki*i_err + Kd*d_err - Klqr*x(:,k);
-	end
-	x(:,k+1) = A*x(:,k) + B*u(:,k);
-
+    pid_m1 = pid_m0; % shift old pid output
+    pid_m0 = (1)       * pid_m1 + ... % update new pid output
+             (Kp+Ki+Kd)* err_m0 + ...
+             (-Kp-2*Kd)* err_m1 + ...
+             (Kd)      * err_m2;
+    
+    u(:,k) = pid_m0 - Klqr*x(:,k); % update control input
+    
+    x(:,k+1) = A*x(:,k) + B*u(:,k); % update state
+    
 end
 
 % plot
