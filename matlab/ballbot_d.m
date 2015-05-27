@@ -12,7 +12,7 @@
 clear
 
 dt = 0.005; % sample time (s)
-t = dt:dt:50-dt; % time scale
+t = dt:dt:20-dt; % time scale
 
 %% Open-loop system
 % static system parameters
@@ -28,10 +28,10 @@ w = [1e-3; % (m)
      1e-3; % (m/s)
      1e-3; % (m)
      1e-3; % (m/s)
-     20e-3; % (rad)
-     20e-3; % (rad/s)
-     20e-3; % (rad)
-     20e-3];% (rad/s)
+     1e-3; % (rad)
+     1e-3; % (rad/s)
+     1e-3; % (rad)
+     1e-3];% (rad/s)
 
 % measurement noise variance
 v = [5e-3; % (m)
@@ -71,16 +71,17 @@ x = NaN(8,length(t)); % state (x,dx,y,dy,theta,dtheta,phi,dphi)
 y = NaN(4,length(t)); % output (x,y,theta,phi)
 
 %% Observer
-xh = NaN(8,length(t));
-yh = NaN(4,length(t));
+xh = NaN(8,length(t)); % estimated state (x,dx,y,dy,theta,dtheta,phi,dphi)
+yh = NaN(4,length(t)); % estimated output (x,y,theta,phi)
 
 % initial conditions
 xh(:,1) = [0;0;0;0;0;0;0;0];
 yh(:,1) = [0;0;0;0];
+P = eye(8);
 
 %% LQR
-Q = eye(8); % state weights (???)
-R = eye(2); % input weights (???)
+Q = eye(8); % state weights
+R = eye(2); % input weights
 Klqr = dlqr(A,B,Q,R); % feedback gain
 
 % initial conditions
@@ -88,10 +89,8 @@ x(:,1) = [0;0;0;0;0;0;0;0];
 y(:,1) = [0;0;0;0];
 
 %% PID
-% reference (x-y position)
-r = ones(2,length(t));
+r = ones(2,length(t)); % reference position (x,y)
 
-% gains
 Kp = 0;
 Ki = -0.0015;
 Kd = 0;
@@ -104,15 +103,22 @@ err_m1 = zeros(2,1);
 err_m2 = zeros(2,1);
 
 %% Simulation
-for k = 1:length(t)-1
+for k = 2:length(t)
     
-    % output sample
+    % state update
+    x(:,k) = A*x(:,k-1) + B*u(:,k-1) + w.^2.*randn(8,1);
+    
+    % measurement sample
     y(:,k) = C*x(:,k) + v.^2.*randn(4,1);
     
     % Kalman observer update
-%     xh(:,k+1) = A*xh(:,k) + B*u(:,k);
-%     P = A*P*A' + Qk;
-%     ye = y(:,k) - C*xh(:,k);
+    xh(:,k) = A*xh(:,k-1) + B*u(:,k-1);
+    P = A*P*A' + diag(w.^2);
+    S = C*P*C' + diag(v.^2);
+    Kkal = P*C'*inv(S);
+    xh(:,k) = xh(:,k) + Kkal*(y(:,k) - C*xh(:,k));
+    yh(:,k) = C*xh(:,k);
+    P = (eye(8)-Kkal*C)*P;
     
     % PID controller update
     err_m2 = err_m1; % shift old error sample
@@ -126,20 +132,26 @@ for k = 1:length(t)-1
              (Kd)      * err_m2;
     
     % LQR + PID control update
-    u(:,k) = pid_m0 - Klqr*x(:,k);
-    
-    % state update
-    x(:,k+1) = A*x(:,k) + B*u(:,k) + w.^2.*randn(8,1);
+    u(:,k) = pid_m0 - Klqr*xh(:,k);
     
 end
 
 % plot
 figure(1)
 plot(t,x,'o')
+hold on
+plot(t,xh,'x');
 legend('x','dx','y','dy','th','dth','ph','dph')
 title('state')
 grid on
 
+figure(2)
+plot(t,y,'o')
+hold on
+plot(t,yh,'x')
+legend('x','y','th','ph')
+title('output')
+grid on
 
 
 
