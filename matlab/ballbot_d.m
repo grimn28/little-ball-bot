@@ -11,8 +11,11 @@
 
 clear
 
-%% Describe open-loop system
-% define static system parameters
+dt = 0.005; % sample time (s)
+t = dt:dt:50-dt; % time scale
+
+%% Open-loop system
+% static system parameters
 M = 0.5; % mass of ball [kg]
 m = 0.2; % mass of body [kg]
 l = 0.1; % length of end of body to c.o.g. [m]
@@ -20,16 +23,23 @@ b = 0.1; % coefficient of friction between wheels/ball/surface [N/m/s]
 I = 0.005; % moment of inertia of body [kg-m^2]
 g = 9.8; % gravitational acceleration [m/s/s]
 
-dt = 0.005; % sample time (s)
+% process noise standard deviation
+w = [1e-3; % (m)
+     1e-3; % (m/s)
+     1e-3; % (m)
+     1e-3; % (m/s)
+     20e-3; % (rad)
+     20e-3; % (rad/s)
+     20e-3; % (rad)
+     20e-3];% (rad/s)
 
-w = 0.05; % process noise variance
-v = 0.01; % measurement noise variance
+% measurement noise variance
+v = [5e-3; % (m)
+     5e-3; % (m)
+     40e-3; % (rad)
+     40e-3];% (rad)
 
-% define state matrices
-%  states: x, dx, y, dy, theta, dtheta, phi, dphi
-%  inputs: ux, uy
-%  outputs: theta, phi
-
+% state matrices
 q = (M+m)*(I+m*l^2) - (m*l)^2; % common denominator
 
 A = [1, dt-0.5*dt^2*b*(I+m*l^2)/q, 0, 0, -0.5*dt^2*(m*l)^2*g/q, 0, 0, 0;
@@ -56,14 +66,17 @@ C = [1 0 0 0 0 0 0 0;
     0 0 0 0 0 0 1 0];
 
 % variables
-t = dt:dt:50-dt; % time scale
-x = NaN(8,length(t)); % state
-y = NaN(4,length(t)); % output
+u = zeros(2,length(t)); % input (ux, uy)
+x = NaN(8,length(t)); % state (x,dx,y,dy,theta,dtheta,phi,dphi)
+y = NaN(4,length(t)); % output (x,y,theta,phi)
 
-% control inputs
-u = zeros(2,length(t)); % input (x-y acceleration)
-r = ones(2,length(t)); % reference (x-y position)
+%% Observer
+xh = NaN(8,length(t));
+yh = NaN(4,length(t));
 
+% initial conditions
+xh(:,1) = [0;0;0;0;0;0;0;0];
+yh(:,1) = [0;0;0;0];
 
 %% LQR
 Q = eye(8); % state weights (???)
@@ -75,8 +88,12 @@ x(:,1) = [0;0;0;0;0;0;0;0];
 y(:,1) = [0;0;0;0];
 
 %% PID
+% reference (x-y position)
+r = ones(2,length(t));
+
+% gains
 Kp = 0;
-Ki = -0.002;
+Ki = -0.0015;
 Kd = 0;
 
 % initial conditions
@@ -86,11 +103,18 @@ err_m0 = zeros(2,1);
 err_m1 = zeros(2,1);
 err_m2 = zeros(2,1);
 
-%% simulate system
+%% Simulation
 for k = 1:length(t)-1
     
-    y(:,k) = C*x(:,k); % read output sample
+    % output sample
+    y(:,k) = C*x(:,k) + v.^2.*randn(4,1);
     
+    % Kalman observer update
+%     xh(:,k+1) = A*xh(:,k) + B*u(:,k);
+%     P = A*P*A' + Qk;
+%     ye = y(:,k) - C*xh(:,k);
+    
+    % PID controller update
     err_m2 = err_m1; % shift old error sample
     err_m1 = err_m0; % shift old error sample
     err_m0 = r(:,k) - y(1:2,k); % update new error sample
@@ -101,9 +125,11 @@ for k = 1:length(t)-1
              (-Kp-2*Kd)* err_m1 + ...
              (Kd)      * err_m2;
     
-    u(:,k) = pid_m0 - Klqr*x(:,k); % update control input
+    % LQR + PID control update
+    u(:,k) = pid_m0 - Klqr*x(:,k);
     
-    x(:,k+1) = A*x(:,k) + B*u(:,k); % update state
+    % state update
+    x(:,k+1) = A*x(:,k) + B*u(:,k) + w.^2.*randn(8,1);
     
 end
 
