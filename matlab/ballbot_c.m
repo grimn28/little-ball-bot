@@ -9,7 +9,7 @@
 % angular measurement, as well as motor encoders which
 % provide X-Y position measurement.
 
-clear
+function sys = ballbot_c()
 
 %% Describe open-loop system
 % define static system parameters
@@ -59,58 +59,13 @@ D = [0 0;
 	 0 0];
 
 % generate open-loop system model
-SYS_bb = ss(A,B,C,D,...
-	'inputname',{'Ux','Uy'},...
-	'outputname',{'x','y','theta','phi'},...
-	'statename',{'x','dx','y','dy','theta','dtheta','phi','dphi'});
-
-% check stability, controllability, observability
-eigens = eig(A); % eigenvalues - any positives mean unstable
-controllable = rank(ctrb(A,B))==length(A);
-observable = rank(obsv(A,C))==length(A);
-
-
-%% Design Kalman estimator
-Qe = w^2;
-Re = v^2;
-%[Ke,L,P,M,Z] = kalman(SYS_bb,Qe,Re);
-
-
-%% Design feedback regulator
-% define LQR parameters
-Qr = eye(8);
-Rr = eye(2);
-
-% generate feedack gain
-Kr = lqr(SYS_bb,Qr,Rr);
-
-% define closed-loop system
-Ac = (A-B*Kr);
-Bc = B;
-Cc = C;
-Dc = D;
-
-SYS_lqr = ss(Ac,Bc,Cc,Dc,...
+sys = ss(A,B,C,D,...
 	'inputname',{'Ux','Uy'},...
 	'outputname',{'x','y','theta','phi'},...
 	'statename',{'x','dx','y','dy','theta','dtheta','phi','dphi'});
 
 
-%% Simulate closed-loop system
-% time response
-dt = 0.001;
-t = 0:dt:10-dt;
-u = zeros(2,length(t));
-x0 = [0; 0; 0; 0; pi/32; 0; pi/24; 0];
-
-[y,t,x] = lsim(SYS_lqr,u,t,x0);
-
-figure(1)
-clf
-plot(t,y)
-legend('x','y','theta','phi')
-
-
+end
 
 
 
