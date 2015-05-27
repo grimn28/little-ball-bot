@@ -11,7 +11,7 @@
 
 clear
 
-dt = 0.005; % sample time (s)
+dt = 0.01; % sample time (s)
 t = dt:dt:20-dt; % time scale
 
 %% Open-loop system
@@ -92,7 +92,7 @@ y(:,1) = [0;0;0;0];
 r = ones(2,length(t)); % reference position (x,y)
 
 Kp = 0;
-Ki = -0.0015;
+Ki = -0.003;
 Kd = 0;
 
 % initial conditions
@@ -138,21 +138,35 @@ end
 
 % plot
 figure(1)
+clf
 plot(t,x,'o')
 hold on
-plot(t,xh,'x');
+plot(t,xh,'Linewidth',2)
 legend('x','dx','y','dy','th','dth','ph','dph')
 title('state')
 grid on
 
 figure(2)
+clf
 plot(t,y,'o')
 hold on
-plot(t,yh,'x')
+plot(t,yh,'Linewidth',2)
 legend('x','y','th','ph')
 title('output')
 grid on
 
+pause
+% animation
+figure(3)
+[sx,sy,sz] = sphere(20);
+for i=1:length(t)
+    clf;
+    surf(sx+x(1,i),sy+x(3,i),sz+1)
+    shading interp
+    axis([-5 5 -5 5 0 10])
+    title(['t = ' num2str(t(i)) ' sec'])
+    drawnow
+end
 
 
 
