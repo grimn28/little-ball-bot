@@ -12,7 +12,7 @@
 clear
 
 dt = 0.01; % sample time (s)
-t = dt:dt:20-dt; % time scale
+t = dt:dt:5-dt; % time scale
 
 %% Open-loop system
 % static system parameters
@@ -85,14 +85,15 @@ R = eye(2); % input weights
 Klqr = dlqr(A,B,Q,R); % feedback gain
 
 % initial conditions
-x(:,1) = [0;0;0;0;0;0;0;0];
+x(:,1) = [0;0;0;0;-pi/64;0;pi/32;0];
 y(:,1) = [0;0;0;0];
 
 %% PID
-r = ones(2,length(t)); % reference position (x,y)
+r = [ones(1,length(t)); 
+	 -ones(1,length(t))];
 
 Kp = 0;
-Ki = -0.003;
+Ki = 0;
 Kd = 0;
 
 % initial conditions
@@ -136,7 +137,7 @@ for k = 2:length(t)
     
 end
 
-% plot
+%% plot
 figure(1)
 clf
 plot(t,x,'o')
@@ -155,17 +156,33 @@ legend('x','y','th','ph')
 title('output')
 grid on
 
-pause
-% animation
-figure(3)
-[sx,sy,sz] = sphere(20);
-for i=1:length(t)
-    clf;
-    surf(sx+x(1,i),sy+x(3,i),sz+1)
-    shading interp
-    axis([-5 5 -5 5 0 10])
-    title(['t = ' num2str(t(i)) ' sec'])
-    drawnow
+%% animation
+if 1
+	figure(3)
+	clf
+	ax = axes('XLim',[-2 2],'YLim',[-2 2],'ZLim',[0 4]);
+	xlabel('x')
+	ylabel('y')
+	view(3)
+	grid on
+	[sx,sy,sz] = sphere(20);
+	[cx,cy,cz] = cylinder(0.3);
+	hs = surface(.25*sx,.25*sy,.25*sz,'FaceColor','magenta');
+	hc = surface(cx,cy,cz,'FaceColor','cyan');
+	ts = hgtransform('Parent',ax);
+	set(hs,'Parent',ts);
+	tc = hgtransform('Parent',ax);
+	set(hc,'Parent',tc);
+	Rz = eye(4);
+	Ts = Rz;
+	for i = 1:length(t)
+		Ts = makehgtform('translate',[x(1,i) x(3,i) .25]);
+		Tc = makehgtform('translate',[x(1,i)+0.5*sin(x(5,i)) x(3,i)+0.5*sin(x(7,i)) .5],...
+						 'yrotate',x(5,i),'xrotate',-x(7,i));
+		set(ts,'Matrix',Ts)
+		set(tc,'Matrix',Tc)
+		drawnow
+	end
 end
 
 
