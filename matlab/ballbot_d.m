@@ -69,6 +69,7 @@ C = [1 0 0 0 0 0 0 0;
 u = zeros(2,length(t)); % input (ux, uy)
 x = NaN(8,length(t)); % state (x,dx,y,dy,theta,dtheta,phi,dphi)
 y = NaN(4,length(t)); % output (x,y,theta,phi)
+Vm = NaN(2,length(t)); % base speed command (Vmx, Vmy)
 
 %% Observer
 xh = NaN(8,length(t)); % estimated state (x,dx,y,dy,theta,dtheta,phi,dphi)
@@ -127,33 +128,34 @@ for k = 2:length(t)
     err_m0 = r(:,k) - y(1:2,k); % update new error sample
 
     pid_m1 = pid_m0; % shift old pid output
-    pid_m0 = (1)       * pid_m1 + ... % update new pid output
-             (Kp+Ki+Kd)* err_m0 + ...
-             (-Kp-2*Kd)* err_m1 + ...
-             (Kd)      * err_m2;
+    pid_m0 = (1)        * pid_m1 + ... % update new pid output
+             (Kp+Ki+Kd) * err_m0 + ...
+             (-Kp-2*Kd) * err_m1 + ...
+             (Kd)       * err_m2;
     
     % LQR + PID control update
     u(:,k) = pid_m0 - Klqr*xh(:,k);
+
+	% motor speed command
+	Vm(:,k) = [(u(1,k) + (M+m)/dt*x(2,k-1) - (m*l/dt)*x(6,k) + (m*l/dt)*x(6,k-1))/((M+m)/dt);
+			   (u(2,k) + (M+m)/dt*x(4,k-1) - (m*l/dt)*x(8,k) + (m*l/dt)*x(8,k-1))/((M+m)/dt)];
     
 end
 
 %% plot
 figure(1)
 clf
-plot(t,x,'o')
-hold on
-plot(t,xh,'Linewidth',2)
-legend('x','dx','y','dy','th','dth','ph','dph')
-title('state')
-grid on
-
-figure(2)
-clf
 plot(t,y,'o')
 hold on
 plot(t,yh,'Linewidth',2)
 legend('x','y','th','ph')
 title('output')
+grid on
+
+figure(2)
+clf
+plot(t,Vm,'o')
+title('ball speed')
 grid on
 
 %% animation
